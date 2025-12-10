@@ -130,6 +130,71 @@ contract SimpleVault is ERC20 {
         _mint(receiver, shares);
     }
 
+    /// @notice Mint shares by depositing required assets
+    function mint(
+        uint256 shares,
+        address receiver
+    ) external returns (uint256 assets) {
+        require(shares > 0, "ZERO_SHARES");
+
+        assets = previewMint(shares);
+        require(assets > 0, "ZERO_ASSETS");
+
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+
+        afterDeposit(assets, shares);
+
+        _mint(receiver, shares);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                       WITHDRAW / REDEEM
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Withdraw assets by burning enough shares
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) external returns (uint256 shares) {
+        require(assets > 0, "ZERO_ASSETS");
+
+        shares = previewWithdraw(assets);
+        require(shares > 0, "ZERO_SHARES");
+
+        if (msg.sender != owner) {
+            _spendAllowance(owner, msg.sender, shares);
+        }
+
+        beforeWithdraw(assets, shares);
+
+        _burn(owner, shares);
+
+        asset.safeTransfer(receiver, assets);
+    }
+
+    /// @notice Redeem shares for assets
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) external returns (uint256 assets) {
+        require(shares > 0, "ZERO_SHARES");
+
+        if (msg.sender != owner) {
+            _spendAllowance(owner, msg.sender, shares);
+        }
+
+        assets = previewRedeem(shares);
+        require(assets > 0, "ZERO_ASSETS");
+
+        beforeWithdraw(assets, shares);
+
+        _burn(owner, shares);
+
+        asset.safeTransfer(receiver, assets);
+    }
+
     /*//////////////////////////////////////////////////////////////
                           STRATEGY HOOKS
     //////////////////////////////////////////////////////////////*/
@@ -144,3 +209,8 @@ contract SimpleVault is ERC20 {
         // override to ensure liquidity
     }
 }
+
+// previewDeposit → floor
+// previewRedeem → floor
+// previewMint → ceil
+// previewWithdraw → ceil
